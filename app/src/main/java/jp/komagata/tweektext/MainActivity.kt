@@ -113,9 +113,11 @@ private fun EditorApp() {
     var searchOpen by remember { mutableStateOf(false) }
     var replaceOpen by remember { mutableStateOf(false) }
     var pendingSaveAfterCreate by remember { mutableStateOf(false) }
-    val syntaxMode = remember(fileName) { fileName.syntaxMode() }
 
     fun currentText(): String = editorState.text.toString()
+    val syntaxMode = remember(fileName, currentText()) {
+        fileName.syntaxMode().takeIf { it != SyntaxMode.Plain } ?: currentText().syntaxModeFromContent()
+    }
 
     fun setEditorText(text: String) {
         editorState.edit {
@@ -421,6 +423,20 @@ private fun String.syntaxMode(): SyntaxMode {
             lowerName.endsWith(".conf") ||
             lowerName.endsWith(".properties") ||
             lowerName.endsWith(".env") -> SyntaxMode.Ini
+        else -> SyntaxMode.Plain
+    }
+}
+
+private fun String.syntaxModeFromContent(): SyntaxMode {
+    val trimmed = trimStart()
+    if (trimmed.isBlank()) return SyntaxMode.Plain
+    return when {
+        trimmed.startsWith("<") -> SyntaxMode.Xml
+        trimmed.startsWith("{") || trimmed.startsWith("[") -> SyntaxMode.Json
+        lineSequence().take(12).any { line ->
+            val trimmedLine = line.trimStart()
+            trimmedLine.isNotEmpty() && !trimmedLine.startsWith("#") && Regex("""^[A-Za-z0-9_.-]+\s*[:=]""").containsMatchIn(trimmedLine)
+        } -> SyntaxMode.Yaml
         else -> SyntaxMode.Plain
     }
 }
