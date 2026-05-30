@@ -10,7 +10,8 @@ TweekText is a simple Android plain text editor for Android 12 and later.
 - Preserve existing line endings when saving opened files.
 - Use LF for new files.
 - Provide search and replace.
-- Do not include code-editor features such as syntax highlighting, completion, Git integration, terminal, or project management.
+- Highlight syntax for common configuration files: JSON, XML, YAML, INI, `.conf`, `.properties`, and `.env`.
+- Do not include code-editor features such as completion, Git integration, terminal, or project management.
 
 ## UI
 

@@ -13,15 +13,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -53,7 +50,6 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,9 +57,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
@@ -87,6 +89,14 @@ private enum class LineEnding(val value: String) {
     CR("\r"),
 }
 
+private enum class SyntaxMode {
+    Plain,
+    Json,
+    Xml,
+    Yaml,
+    Ini,
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditorApp() {
@@ -103,6 +113,7 @@ private fun EditorApp() {
     var searchOpen by remember { mutableStateOf(false) }
     var replaceOpen by remember { mutableStateOf(false) }
     var pendingSaveAfterCreate by remember { mutableStateOf(false) }
+    val syntaxMode = remember(fileName) { fileName.syntaxMode() }
 
     fun currentText(): String = editorState.text.toString()
 
@@ -253,6 +264,7 @@ private fun EditorApp() {
                 .fillMaxSize()
                 .imePadding(),
             textStyle = MaterialTheme.typography.bodyLarge,
+            visualTransformation = remember(syntaxMode) { SyntaxHighlightTransformation(syntaxMode) },
             placeholder = { Text("Plain text") },
             singleLine = false,
         )
@@ -398,6 +410,157 @@ private fun String.detectLineEnding(): LineEnding =
 
 private fun String.normalizeLineEndings(lineEnding: LineEnding): String =
     replace("\r\n", "\n").replace("\r", "\n").replace("\n", lineEnding.value)
+
+private fun String.syntaxMode(): SyntaxMode {
+    val lowerName = lowercase()
+    return when {
+        lowerName.endsWith(".json") -> SyntaxMode.Json
+        lowerName.endsWith(".xml") -> SyntaxMode.Xml
+        lowerName.endsWith(".yaml") || lowerName.endsWith(".yml") -> SyntaxMode.Yaml
+        lowerName.endsWith(".ini") ||
+            lowerName.endsWith(".conf") ||
+            lowerName.endsWith(".properties") ||
+            lowerName.endsWith(".env") -> SyntaxMode.Ini
+        else -> SyntaxMode.Plain
+    }
+}
+
+private class SyntaxHighlightTransformation(
+    private val mode: SyntaxMode,
+) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        if (mode == SyntaxMode.Plain || text.text.isEmpty()) {
+            return TransformedText(text, OffsetMapping.Identity)
+        }
+
+        return TransformedText(
+            buildAnnotatedString {
+                append(text.text)
+                when (mode) {
+                    SyntaxMode.Json -> highlightJson(text.text)
+                    SyntaxMode.Xml -> highlightXml(text.text)
+                    SyntaxMode.Yaml -> highlightYaml(text.text)
+                    SyntaxMode.Ini -> highlightIni(text.text)
+                    SyntaxMode.Plain -> Unit
+                }
+            },
+            OffsetMapping.Identity,
+        )
+    }
+}
+
+private val keyStyle = SpanStyle(color = Color(0xFF006D3B))
+private val stringStyle = SpanStyle(color = Color(0xFF8C1D18))
+private val numberStyle = SpanStyle(color = Color(0xFF7D5260))
+private val literalStyle = SpanStyle(color = Color(0xFF6750A4))
+private val tagStyle = SpanStyle(color = Color(0xFF005DBA))
+private val attributeStyle = SpanStyle(color = Color(0xFF7D5700))
+private val commentStyle = SpanStyle(color = Color(0xFF6B7280))
+private val sectionStyle = SpanStyle(color = Color(0xFF005DBA))
+
+private fun AnnotatedString.Builder.highlightJson(source: String) {
+    addRegexStyle(source, "\"(?:\\\\.|[^\"\\\\])*\"\\s*:".toRegex(), keyStyle) { range ->
+        val colonOffset = source.indexOf(':', range.first)
+        if (colonOffset > range.first) range.first until colonOffset else range
+    }
+    addRegexStyle(source, "\"(?:\\\\.|[^\"\\\\])*\"".toRegex(), stringStyle)
+    addRegexStyle(source, """(?<![\w.])-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b""".toRegex(), numberStyle)
+    addRegexStyle(source, """\b(?:true|false|null)\b""".toRegex(), literalStyle)
+}
+
+private fun AnnotatedString.Builder.highlightXml(source: String) {
+    addRegexStyle(source, "<!--[\\s\\S]*?-->".toRegex(), commentStyle)
+    addRegexStyle(source, "</?[A-Za-z_][\\w:.-]*|/?>".toRegex(), tagStyle)
+    addRegexStyle(source, "\\s[A-Za-z_][\\w:.-]*(?=\\s*=)".toRegex(), attributeStyle) { range ->
+        (range.first + 1) until range.last
+    }
+    addRegexStyle(source, "\"[^\"]*\"|'[^']*'".toRegex(), stringStyle)
+}
+
+private fun AnnotatedString.Builder.highlightYaml(source: String) {
+    source.lineRanges().forEach { range ->
+        if (range.isEmpty()) return@forEach
+        val line = source.substring(range)
+        val trimmedStart = line.indexOfFirst { !it.isWhitespace() }.takeIf { it >= 0 } ?: return@forEach
+        val contentStart = range.first + trimmedStart
+
+        if (line.substring(trimmedStart).startsWith("#")) {
+            addStyle(commentStyle, contentStart, range.last + 1)
+            return@forEach
+        }
+
+        val commentOffset = line.indexOf('#', trimmedStart)
+        if (commentOffset >= 0) {
+            addStyle(commentStyle, range.first + commentOffset, range.last + 1)
+        }
+
+        val colonOffset = line.indexOf(':', trimmedStart)
+        if (colonOffset > trimmedStart) {
+            addStyle(keyStyle, contentStart, range.first + colonOffset)
+        }
+    }
+    addRegexStyle(source, "\"[^\"]*\"|'[^']*'".toRegex(), stringStyle)
+    addRegexStyle(source, """\b(?:true|false|null|yes|no|on|off)\b""".toRegex(RegexOption.IGNORE_CASE), literalStyle)
+    addRegexStyle(source, """(?<![\w.])-?\b\d+(?:\.\d+)?\b""".toRegex(), numberStyle)
+}
+
+private fun AnnotatedString.Builder.highlightIni(source: String) {
+    source.lineRanges().forEach { range ->
+        if (range.isEmpty()) return@forEach
+        val line = source.substring(range)
+        val trimmedStart = line.indexOfFirst { !it.isWhitespace() }.takeIf { it >= 0 } ?: return@forEach
+        val contentStart = range.first + trimmedStart
+        val trimmed = line.substring(trimmedStart)
+
+        if (trimmed.startsWith("#") || trimmed.startsWith(";")) {
+            addStyle(commentStyle, contentStart, range.last + 1)
+            return@forEach
+        }
+
+        if (trimmed.startsWith("[") && trimmed.contains("]")) {
+            val end = line.indexOf(']', trimmedStart)
+            addStyle(sectionStyle, contentStart, range.first + end + 1)
+            return@forEach
+        }
+
+        val separatorOffset = listOf(line.indexOf('=', trimmedStart), line.indexOf(':', trimmedStart))
+            .filter { it >= 0 }
+            .minOrNull()
+        if (separatorOffset != null && separatorOffset > trimmedStart) {
+            addStyle(keyStyle, contentStart, range.first + separatorOffset)
+        }
+    }
+    addRegexStyle(source, "\"[^\"]*\"|'[^']*'".toRegex(), stringStyle)
+}
+
+private fun AnnotatedString.Builder.addRegexStyle(
+    source: String,
+    regex: Regex,
+    style: SpanStyle,
+    rangeTransform: (IntRange) -> IntRange = { it },
+) {
+    regex.findAll(source).forEach { match ->
+        val range = rangeTransform(match.range.first until (match.range.last + 1))
+        if (range.first < range.last) {
+            addStyle(style, range.first, range.last)
+        }
+    }
+}
+
+private fun String.lineRanges(): List<IntRange> {
+    val ranges = mutableListOf<IntRange>()
+    var lineStart = 0
+    forEachIndexed { index, char ->
+        if (char == '\n') {
+            ranges += lineStart until index
+            lineStart = index + 1
+        }
+    }
+    if (lineStart <= length) {
+        ranges += lineStart until length
+    }
+    return ranges
+}
 
 private fun Context.displayName(uri: Uri): String? {
     contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
