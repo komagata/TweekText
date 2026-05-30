@@ -6,6 +6,10 @@ plugins {
 android {
     namespace = "jp.komagata.tweektext"
     compileSdk = 36
+    val releaseKeystoreFile = System.getenv("TWEEKTEXT_KEYSTORE_FILE")
+    val releaseKeystorePassword = System.getenv("TWEEKTEXT_KEYSTORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("TWEEKTEXT_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("TWEEKTEXT_KEY_PASSWORD")
 
     defaultConfig {
         applicationId = "jp.komagata.tweektext"
@@ -18,6 +22,30 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    signingConfigs {
+        if (
+            releaseKeystoreFile != null &&
+            releaseKeystorePassword != null &&
+            releaseKeyAlias != null &&
+            releaseKeyPassword != null
+        ) {
+            create("release") {
+                storeFile = file(releaseKeystoreFile)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (signingConfigs.names.contains("release")) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 }
 

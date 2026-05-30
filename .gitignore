@@ -1,6 +1,8 @@
 .gradle/
 .idea/
 local.properties
+signing.properties
+release-signing/
 
 build/
 app/build/
@@ -8,5 +10,7 @@ app/build/
 *.iml
 *.keystore
 *.jks
+*.apk
+*.apk.sha256
 
 .DS_Store

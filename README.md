@@ -42,6 +42,23 @@ The debug APK is generated at:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+Build a signed release APK by providing the release signing environment variables:
+
+```sh
+TWEEKTEXT_KEYSTORE_FILE=/path/to/tweektext-release.jks \
+TWEEKTEXT_KEYSTORE_PASSWORD=... \
+TWEEKTEXT_KEY_ALIAS=tweektext \
+TWEEKTEXT_KEY_PASSWORD=... \
+JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home \
+./gradlew assembleRelease
+```
+
+The release APK is generated at:
+
+```text
+app/build/outputs/apk/release/app-release.apk
+```
+
 ## Emulator
 
 This development machine has an AVD named `TweekText_API_36`.
