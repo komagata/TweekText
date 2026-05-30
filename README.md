@@ -48,3 +48,19 @@ This development machine has an AVD named `TweekText_API_36`.
 ```sh
 ANDROID_HOME=/opt/homebrew/share/android-commandlinetools /opt/homebrew/share/android-commandlinetools/emulator/emulator -avd TweekText_API_36
 ```
+
+## Test
+
+Run the app UI tests on a connected Android device or emulator:
+
+```sh
+JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradlew connectedDebugAndroidTest
+```
+
+The UI tests cover:
+
+- Plain text editing
+- Search
+- Replace all
+- Starting the save document picker
+- Starting the open document picker

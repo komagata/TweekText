@@ -62,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -246,6 +247,7 @@ private fun EditorApp() {
             value = currentText(),
             onValueChange = { setEditorText(it) },
             modifier = Modifier
+                .testTag("editor")
                 .padding(padding)
                 .padding(horizontal = 12.dp)
                 .fillMaxSize()
@@ -294,6 +296,7 @@ private fun SearchDialog(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
+                    modifier = Modifier.testTag("search-query"),
                     label = { Text("Text") },
                     singleLine = true,
                     trailingIcon = {
@@ -336,12 +339,14 @@ private fun ReplaceDialog(
                 OutlinedTextField(
                     value = search,
                     onValueChange = { search = it },
+                    modifier = Modifier.testTag("replace-find"),
                     label = { Text("Find") },
                     singleLine = true,
                 )
                 OutlinedTextField(
                     value = replacement,
                     onValueChange = { replacement = it },
+                    modifier = Modifier.testTag("replace-with"),
                     label = { Text("Replace with") },
                     singleLine = true,
                 )
