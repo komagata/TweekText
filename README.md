@@ -2,6 +2,14 @@
 
 TweekText is a simple Android plain text editor for Android 12 and later.
 
+<p>
+  <img src="docs/images/icon.png" width="96" alt="TweekText app icon">
+</p>
+
+<p>
+  <img src="docs/images/screenshot-editor.png" width="320" alt="TweekText editor screen">
+</p>
+
 ## Scope
 
 - Create and edit plain text files.
